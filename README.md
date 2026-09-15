@@ -1,16 +1,20 @@
-# 奶娃喝水
+<h1 align="center">奶娃喝水</h1>
 
-奶娃喝水是一款净水设备管理应用，支持短信与登录凭证登录、设备扫码绑定、开始与停止接水、设备状态查询、喝水记录、桌面快捷组件，以及胖乖洗澡二维码跳转。
+<p align="center">
+  净水设备管理应用，支持短信与登录凭证登录、设备扫码绑定、开始与停止接水、设备状态查询、喝水记录、桌面快捷组件，以及胖乖洗澡二维码跳转。
+</p>
 
-## 应用截图
+<h2 align="center">应用截图</h2>
 
-| 登录 | 首页 |
-| --- | --- |
-| ![登录页](lib/static/index.jpg) | ![首页](lib/static/logo.png) |
+<p align="center">
+  <img src="lib/static/index.jpg" alt="登录页" width="230" />
+  <img src="lib/static/logo.png" alt="首页" width="230" />
+</p>
 
-| 我的 | 胖乖跳转 |
-| --- | --- |
-| ![个人页](lib/static/me.jpg) | ![胖乖跳转页](lib/static/胖乖.jpg) |
+<p align="center">
+  <img src="lib/static/me.jpg" alt="个人页" width="230" />
+  <img src="lib/static/胖乖.jpg" alt="胖乖跳转页" width="230" />
+</p>
 
 ## 本地运行
 
