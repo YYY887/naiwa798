@@ -1,19 +1,26 @@
+<p align="center">
+  <img src="lib/static/logo.png" alt="奶娃喝水 Logo" width="96" />
+</p>
+
 <h1 align="center">奶娃喝水</h1>
 
 <p align="center">
-  净水设备管理应用，支持短信与登录凭证登录、设备扫码绑定、开始与停止接水、设备状态查询、喝水记录、桌面快捷组件，以及胖乖洗澡二维码跳转。
+  适配于惠生活798饮水机及胖乖生活洗澡的设备管理应用。
+  支持短信与登录凭证登录、设备扫码绑定、开始与停止接水、设备状态查询、喝水记录、桌面快捷组件，以及胖乖洗澡二维码跳转。
 </p>
 
 <h2 align="center">应用截图</h2>
 
 <p align="center">
-  <img src="lib/static/index.jpg" alt="登录页" width="230" />
-  <img src="lib/static/logo.png" alt="首页" width="230" />
+  <img src="lib/static/index.jpg" alt="首页" width="260" />
 </p>
 
 <p align="center">
-  <img src="lib/static/me.jpg" alt="个人页" width="230" />
-  <img src="lib/static/胖乖.jpg" alt="胖乖跳转页" width="230" />
+  <img src="lib/static/me.jpg" alt="个人页" width="260" />
+</p>
+
+<p align="center">
+  <img src="lib/static/胖乖.jpg" alt="胖乖生活洗澡页" width="260" />
 </p>
 
 ## 本地运行
