@@ -183,7 +183,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                       _Row(
                         icon: Icons.system_update_outlined,
                         title: '检查更新',
-                        subtitle: '当前版本 1.0.3',
+                        subtitle: '当前版本 1.0.4',
                         dark: widget.state.dark,
                         trailing: _checkingUpdate
                             ? const SizedBox(

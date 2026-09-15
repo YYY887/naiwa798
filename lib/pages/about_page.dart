@@ -67,7 +67,7 @@ class AboutPage extends StatelessWidget {
                       ),
                       SizedBox(height: 6),
                       Text(
-                        '当前版本 1.0.3',
+                        '当前版本 1.0.4',
                         style: TextStyle(
                           color: Color(0xff545454),
                           fontSize: 14,
