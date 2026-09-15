@@ -17,7 +17,7 @@ flutter build apk --release
 
 ## 构建与安装
 
-GitHub Actions 在 `main` 分支每次推送后会同时构建：
+GitHub Actions 在推送 `vX.Y.Z` 版本标签后会同时构建：
 
 - `NaiWawate-android.apk`：Android 安装包。
 - `NaiWawate-ios-unsigned.ipa`：iOS 未签名安装包。
