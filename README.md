@@ -12,15 +12,9 @@
 <h2 align="center">应用截图</h2>
 
 <p align="center">
-  <img src="lib/static/index.jpg" alt="首页" width="260" />
-</p>
-
-<p align="center">
-  <img src="lib/static/me.jpg" alt="个人页" width="260" />
-</p>
-
-<p align="center">
-  <img src="lib/static/胖乖.jpg" alt="胖乖生活洗澡页" width="260" />
+  <img src="lib/static/index.jpg" alt="首页" width="190" />
+  <img src="lib/static/me.jpg" alt="个人页" width="190" />
+  <img src="lib/static/胖乖.jpg" alt="胖乖生活洗澡页" width="190" />
 </p>
 
 ## 本地运行
