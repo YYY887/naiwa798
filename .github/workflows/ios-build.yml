@@ -1,6 +1,8 @@
 name: 构建 iOS
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       signed_ipa:
@@ -28,11 +30,11 @@ jobs:
         run: flutter pub get
 
       - name: 构建未签名 iOS 应用
-        if: ${{ !inputs.signed_ipa }}
+        if: ${{ github.event_name == 'push' || !inputs.signed_ipa }}
         run: flutter build ios --release --no-codesign
 
       - name: 打包未签名 IPA
-        if: ${{ !inputs.signed_ipa }}
+        if: ${{ github.event_name == 'push' || !inputs.signed_ipa }}
         run: |
           mkdir -p build/ios/unsigned/Payload
           mkdir -p build/ios/ipa
@@ -41,7 +43,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent Payload ../ipa/naiva-drink-unsigned.ipa
 
       - name: 上传未签名 IPA
-        if: ${{ !inputs.signed_ipa }}
+        if: ${{ github.event_name == 'push' || !inputs.signed_ipa }}
         uses: actions/upload-artifact@v4
         with:
           name: 奶娃喝水-iOS-未签名-IPA
