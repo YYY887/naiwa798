@@ -46,13 +46,16 @@ class _HomeState extends State<HomePage> {
   @override
   Widget build(BuildContext c) {
     final wide = MediaQuery.sizeOf(c).width >= 760;
+    final showerPage = i == 1;
     final pages = [
       DevicesPage(state: widget.state),
       const PangGuaiScanPage(embedded: true),
       ProfilePage(state: widget.state),
     ];
     return Scaffold(
-      backgroundColor: widget.state.dark
+      backgroundColor: showerPage
+          ? Colors.black
+          : widget.state.dark
           ? Colors.black
           : const Color(0xfff7f8fa),
       body: DecoratedBox(
@@ -61,7 +64,7 @@ class _HomeState extends State<HomePage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             stops: [0, .34, .58, 1],
-            colors: widget.state.dark
+            colors: showerPage || widget.state.dark
                 ? const [Colors.black, Colors.black, Colors.black, Colors.black]
                 : const [
                     Color(0xff9fe1e3),
@@ -647,54 +650,102 @@ class _BindDevicePageState extends State<BindDevicePage> {
   bool handled = false;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('扫描设备二维码')),
-    body: Stack(
-      fit: StackFit.expand,
-      children: [
-        MobileScanner(
-          controller: scanner,
-          onDetect: (capture) async {
-            if (handled) return;
-            final raw = capture.barcodes.firstOrNull?.rawValue ?? '';
-            final id = RegExp(r'\d{8,20}').firstMatch(raw)?.group(0);
-            if (id == null) return;
-            handled = true;
-            await scanner.stop();
-            final error = await widget.state.bind(id);
-            if (!context.mounted) return;
-            if (error != null) {
-              handled = false;
-              ScaffoldMessenger.maybeOf(context)
-                  ?.showSnackBar(SnackBar(content: Text(error)));
-              await scanner.start();
-              return;
-            }
-            Navigator.of(context).pop();
-          },
-        ),
-        Center(
-          child: Container(
-            width: 240,
-            height: 240,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: 3),
-              borderRadius: BorderRadius.circular(20),
+    backgroundColor: Colors.black,
+    body: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: '返回',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                ),
+                const Expanded(
+                  child: Text(
+                    '扫码添加设备',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 23,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
             ),
-          ),
+            const SizedBox(height: 7),
+            const Text(
+              '请将净水设备二维码放入框内',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xffc7c7c7), fontSize: 13),
+            ),
+            Expanded(
+              child: Center(
+                child: SizedBox(
+                  width: 236,
+                  height: 236,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(26),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        MobileScanner(controller: scanner, onDetect: _onDetect),
+                        IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white, width: 2),
+                              borderRadius: BorderRadius.circular(26),
+                            ),
+                          ),
+                        ),
+                        if (handled)
+                          const ColoredBox(
+                            color: Color(0x66000000),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        const Positioned(
-          bottom: 48,
-          left: 0,
-          right: 0,
-          child: Text(
-            '请将设备二维码放入框内',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 15),
-          ),
-        ),
-      ],
+      ),
     ),
   );
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (handled) return;
+    final raw = capture.barcodes.firstOrNull?.rawValue ?? '';
+    final id = RegExp(r'\d{8,20}').firstMatch(raw)?.group(0);
+    if (id == null) return;
+    setState(() => handled = true);
+    await scanner.stop();
+    final error = await widget.state.bind(id);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => handled = false);
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(error)));
+      await scanner.start();
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
     scanner.dispose();
