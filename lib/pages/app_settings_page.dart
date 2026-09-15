@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_state.dart';
 import '../core/update_service.dart';
+import '../widgets/update_announcement.dart';
 import 'about_page.dart';
 
 class AppSettingsPage extends StatefulWidget {
@@ -43,7 +44,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text('发现新版本 v${update.version}'),
-          content: const Text('新版本已发布到 GitHub Release，是否前往下载更新？'),
+          content: UpdateAnnouncement(notes: update.releaseNotes),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),

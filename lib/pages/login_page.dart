@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -22,6 +23,8 @@ class _LoginPageState extends State<LoginPage> {
   late String captchaUrl;
   bool tokenMode = false;
   bool codeStep = false;
+  Timer? _resendTimer;
+  int _remainingSeconds = 0;
   String? error;
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     phone.dispose();
     captcha.dispose();
     sms.dispose();
@@ -68,7 +72,21 @@ class _LoginPageState extends State<LoginPage> {
       error = r;
       codeStep = r == null;
     });
+    if (r == null) _startResendCountdown();
     if (r != null) _refresh();
+  }
+
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _remainingSeconds = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _remainingSeconds <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _remainingSeconds = 0);
+        return;
+      }
+      setState(() => _remainingSeconds -= 1);
+    });
   }
 
   Future<void> _loginSms() async {
@@ -174,10 +192,21 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 54),
                         _otpInput(),
                         const SizedBox(height: 20),
-                        const Text(
-                          '重新发送（55）',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xff737e93)),
+                        TextButton(
+                          onPressed:
+                              _remainingSeconds > 0 || widget.state.authLoading
+                              ? null
+                              : _openCaptcha,
+                          child: Text(
+                            _remainingSeconds > 0
+                                ? '重新发送（$_remainingSeconds）'
+                                : '重新发送验证码',
+                            style: TextStyle(
+                              color: _remainingSeconds > 0
+                                  ? const Color(0xff737e93)
+                                  : const Color(0xff536ee8),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 48),
                         _button(

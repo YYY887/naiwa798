@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_state.dart';
+import '../core/update_service.dart';
 import '../widgets/account_avatar.dart';
+import '../widgets/update_announcement.dart';
 import 'pangguai_scan_page.dart';
 import 'profile_page.dart';
 
@@ -16,11 +19,17 @@ class HomePage extends StatefulWidget {
 
 class _HomeState extends State<HomePage> {
   int i = 0;
+  final _updateService = UpdateService();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showWelcomeOnce());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
+  }
+
+  Future<void> _onFirstFrame() async {
+    await _showWelcomeOnce();
+    await _showUpdateIfAvailable();
   }
 
   Future<void> _showWelcomeOnce() async {
@@ -41,6 +50,44 @@ class _HomeState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showUpdateIfAvailable() async {
+    try {
+      final update = await _updateService.checkForUpdate();
+      if (!mounted || update == null) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('发现新版本 v${update.version}'),
+          content: UpdateAnnouncement(notes: update.releaseNotes),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('暂不更新'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final opened = await launchUrl(
+                  update.downloadUrl,
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!opened) {
+                  await launchUrl(
+                    update.releaseUrl,
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              },
+              child: const Text('立即更新'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      // Automatic checks are intentionally silent when the network is unavailable.
+    }
   }
 
   @override

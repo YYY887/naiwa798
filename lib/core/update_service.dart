@@ -7,11 +7,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 class UpdateInfo {
   const UpdateInfo({
     required this.version,
+    required this.releaseNotes,
     required this.downloadUrl,
     required this.releaseUrl,
   });
 
   final String version;
+  final String releaseNotes;
   final Uri downloadUrl;
   final Uri releaseUrl;
 }
@@ -42,9 +44,16 @@ class UpdateService {
     if (download == null || releaseUrl == null) return null;
     return UpdateInfo(
       version: tag,
+      releaseNotes: _releaseNotes(release['body']?.toString()),
       downloadUrl: Uri.parse(download),
       releaseUrl: Uri.parse(releaseUrl),
     );
+  }
+
+  String _releaseNotes(String? body) {
+    final notes = body?.trim();
+    if (notes == null || notes.isEmpty) return '本次更新包含体验优化与问题修复。';
+    return notes;
   }
 
   bool _isNewer(String next, String current) {
