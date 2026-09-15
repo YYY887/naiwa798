@@ -1,0 +1,73 @@
+name: Build NaiWawate
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - name: Prepare Android package
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/NaiWawate-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NaiWawate-Android-APK
+          path: release/NaiWawate-android.apk
+          if-no-files-found: error
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: Prepare unsigned iOS package
+        run: |
+          mkdir -p build/ios/unsigned/Payload release
+          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
+          cd build/ios/unsigned
+          ditto -c -k --sequesterRsrc --keepParent Payload ../../../release/NaiWawate-ios-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NaiWawate-iOS-Unsigned-IPA
+          path: release/NaiWawate-ios-unsigned.ipa
+          if-no-files-found: error
+
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: NaiWawate ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release/**/*.apk
+            release/**/*.ipa
+          body: |
+            Android: download `NaiWawate-android.apk` and install it.
+            iOS: `NaiWawate-ios-unsigned.ipa` must be re-signed with Sideloadly, AltStore, or your Apple ID before installation.
+
+            Version: ${{ github.ref_name }}

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_state.dart';
+import '../core/update_service.dart';
 import 'about_page.dart';
 
 class AppSettingsPage extends StatefulWidget {
@@ -12,6 +14,7 @@ class AppSettingsPage extends StatefulWidget {
 
 class _AppSettingsPageState extends State<AppSettingsPage> {
   bool _checkingUpdate = false;
+  final _updateService = UpdateService();
 
   void _dialog(String title, String content) => showDialog<void>(
     context: context,
@@ -29,10 +32,47 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
 
   Future<void> _checkUpdate() async {
     setState(() => _checkingUpdate = true);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    setState(() => _checkingUpdate = false);
-    _dialog('检查更新', '当前已是最新版本');
+    try {
+      final update = await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (update == null) {
+        _dialog('检查更新', '当前已是最新版本');
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('发现新版本 v${update.version}'),
+          content: const Text('新版本已发布到 GitHub Release，是否前往下载更新？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('暂不更新'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final opened = await launchUrl(
+                  update.downloadUrl,
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!opened) {
+                  await launchUrl(
+                    update.releaseUrl,
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              },
+              child: const Text('立即更新'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (mounted) _dialog('检查更新', '暂时无法连接更新服务，请稍后重试');
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
   }
 
   @override
@@ -142,7 +182,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                       _Row(
                         icon: Icons.system_update_outlined,
                         title: '检查更新',
-                        subtitle: '当前版本 1.0.0',
+                        subtitle: '当前版本 1.0.1',
                         dark: widget.state.dark,
                         trailing: _checkingUpdate
                             ? const SizedBox(

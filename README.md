@@ -15,13 +15,16 @@ Android 可执行：
 flutter build apk --release
 ```
 
-## iOS 构建与安装
+## 构建与安装
 
-GitHub Actions 在 `main` 分支每次推送后会构建未签名 IPA，可在 Actions 的构建产物中下载。
+GitHub Actions 在 `main` 分支每次推送后会同时构建：
+
+- `NaiWawate-android.apk`：Android 安装包。
+- `NaiWawate-ios-unsigned.ipa`：iOS 未签名安装包。
 
 未签名 IPA 不能直接安装到 iPhone。可使用 Sideloadly、AltStore 等工具通过自己的 Apple ID 重签后安装。
 
-更完整的 iOS 签名说明见 [docs/ios-github-actions.md](docs/ios-github-actions.md)。
+应用内“检查更新”会读取 GitHub 最新 Release：Android 跳转 APK 下载，iOS 跳转 IPA 下载页面。
 
 ## 发布版本
 
@@ -34,8 +37,8 @@ git push origin v1.0.1
 
 工作流会自动：
 
-- 使用 macOS runner 构建未签名 iOS IPA。
-- 创建名为 `奶娃喝水 v1.0.1` 的 GitHub Release。
-- 将 `naiva-drink-unsigned.ipa` 上传到该 Release。
+- 构建 Android APK 与未签名 iOS IPA。
+- 创建名为 `NaiWawate v1.0.1` 的 GitHub Release。
+- 上传 `NaiWawate-android.apk` 和 `NaiWawate-ios-unsigned.ipa`。
 
 请将 `v1.0.1` 替换为实际版本号，并同步更新 `pubspec.yaml` 中的 `version`。
