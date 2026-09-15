@@ -659,17 +659,17 @@ class _BindDevicePageState extends State<BindDevicePage> {
             final id = RegExp(r'\d{8,20}').firstMatch(raw)?.group(0);
             if (id == null) return;
             handled = true;
+            await scanner.stop();
             final error = await widget.state.bind(id);
             if (!context.mounted) return;
             if (error != null) {
               handled = false;
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(error)));
+              ScaffoldMessenger.maybeOf(context)
+                  ?.showSnackBar(SnackBar(content: Text(error)));
+              await scanner.start();
               return;
             }
-            ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('设备已添加')));
-            Navigator.pop(context);
+            Navigator.of(context).pop();
           },
         ),
         Center(
