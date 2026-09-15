@@ -3,6 +3,7 @@ name: 构建 iOS
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       signed_ipa:
@@ -15,7 +16,7 @@ jobs:
   build-ios:
     runs-on: macos-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: 获取源码
         uses: actions/checkout@v4
@@ -49,6 +50,18 @@ jobs:
           name: 奶娃喝水-iOS-未签名-IPA
           path: build/ios/ipa/naiva-drink-unsigned.ipa
           if-no-files-found: error
+
+      - name: 创建 GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 奶娃喝水 ${{ github.ref_name }}
+          generate_release_notes: true
+          files: build/ios/ipa/naiva-drink-unsigned.ipa
+          body: |
+            iOS 未签名 IPA，需使用 Sideloadly、AltStore 等工具以自己的 Apple ID 重签后安装。
+
+            版本号：${{ github.ref_name }}
 
       - name: 导入签名证书
         if: ${{ inputs.signed_ipa }}
