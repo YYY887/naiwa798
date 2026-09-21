@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'core/app_state.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 
-void main() => runApp(const App());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
+  runApp(
+    LiquidGlassWidgets.wrap(
+      child: const App(),
+      brightnessResolver: Theme.maybeBrightnessOf,
+    ),
+  );
+}
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -24,21 +33,34 @@ class _AppState extends State<App> {
   }
 
   @override
-  Widget build(BuildContext c) => AnimatedBuilder(
+  Widget build(BuildContext context) => AnimatedBuilder(
     animation: state,
-    builder: (_, __) => ShadApp(
+    builder: (context, child) => MaterialApp(
       themeMode: state.dark ? ThemeMode.dark : ThemeMode.light,
-      theme: ShadThemeData(
+      theme: ThemeData(
+        useMaterial3: true,
         brightness: Brightness.light,
-        colorScheme: const ShadZincColorScheme.light(),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xff277eab),
+          brightness: Brightness.light,
+        ),
       ),
-      darkTheme: ShadThemeData(
+      darkTheme: ThemeData(
+        useMaterial3: true,
         brightness: Brightness.dark,
-        colorScheme: const ShadZincColorScheme.dark(),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xff277eab),
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeAnimationDuration: Duration.zero,
+      builder: (context, child) => Material(
+        type: MaterialType.transparency,
+        child: child ?? const SizedBox.shrink(),
       ),
       home: state.token == null
           ? LoginPage(state: state)
-          : HomePage(state: state),
+          : HomePage(state: state, darkMode: state.dark),
     ),
   );
 }

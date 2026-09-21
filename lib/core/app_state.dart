@@ -28,7 +28,7 @@ class AppState extends ChangeNotifier {
     token = await secure.read(key: 'token');
     api.token = token;
     final p = await SharedPreferences.getInstance();
-    dark = p.getBool('dark') ?? false;
+    dark = p.getBool('dark_mode') ?? p.getBool('dark') ?? false;
     selected = p.getString('selected_device') ?? '';
     for (final key in p.getKeys().where(
       (key) => key.startsWith('device_remark_'),
@@ -326,7 +326,7 @@ class AppState extends ChangeNotifier {
   Future<void> setDark(bool v) async {
     dark = v;
     final p = await SharedPreferences.getInstance();
-    await p.setBool('dark', v);
+    await p.setBool('dark_mode', v);
     notifyListeners();
   }
 }

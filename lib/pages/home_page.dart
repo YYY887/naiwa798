@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_state.dart';
+import '../core/app_palette.dart';
 import '../core/update_service.dart';
 import '../widgets/account_avatar.dart';
 import '../widgets/update_announcement.dart';
@@ -11,8 +13,9 @@ import 'pangguai_scan_page.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.state, super.key});
+  const HomePage({required this.state, required this.darkMode, super.key});
   final AppState state;
+  final bool darkMode;
   @override
   State<HomePage> createState() => _HomeState();
 }
@@ -20,11 +23,39 @@ class HomePage extends StatefulWidget {
 class _HomeState extends State<HomePage> {
   int i = 0;
   final _updateService = UpdateService();
+  ValueNotifier<Brightness>? _tabBarBrightness;
+  late final List<Widget> _pages;
+
+  ValueNotifier<Brightness> get _effectiveTabBarBrightness =>
+      _tabBarBrightness ??= ValueNotifier(
+        widget.darkMode ? Brightness.dark : Brightness.light,
+      );
 
   @override
   void initState() {
     super.initState();
+    _pages = [
+      DevicesPage(state: widget.state),
+      const PangGuaiScanPage(embedded: true),
+      ProfilePage(state: widget.state),
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.darkMode != widget.darkMode) {
+      _effectiveTabBarBrightness.value = widget.darkMode
+          ? Brightness.dark
+          : Brightness.light;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabBarBrightness?.dispose();
+    super.dispose();
   }
 
   Future<void> _onFirstFrame() async {
@@ -91,59 +122,48 @@ class _HomeState extends State<HomePage> {
   }
 
   @override
-  Widget build(BuildContext c) {
-    final wide = MediaQuery.sizeOf(c).width >= 760;
-    final showerPage = i == 1;
-    final pages = [
-      DevicesPage(state: widget.state),
-      const PangGuaiScanPage(embedded: true),
-      ProfilePage(state: widget.state),
-    ];
-    return Scaffold(
-      backgroundColor: showerPage
-          ? Colors.black
-          : widget.state.dark
-          ? Colors.black
-          : const Color(0xfff7f8fa),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: [0, .34, .58, 1],
-            colors: showerPage || widget.state.dark
-                ? const [Colors.black, Colors.black, Colors.black, Colors.black]
-                : const [
-                    Color(0xff9fe1e3),
-                    Color(0xffd9eeeb),
-                    Color(0xfff2d8cc),
-                    Color(0xfff7f8fa),
-                  ],
-          ),
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(child: pages[i]),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _FloatingNavigation(
-                  wide: wide,
-                  dark: widget.state.dark,
-                  selectedIndex: i,
-                  onSelect: (value) => setState(() => i = value),
-                  onScan: () => setState(() => i = 1),
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => GlassScaffold(
+    backgroundColor: widget.darkMode ? Colors.black : const Color(0xfff7f8fa),
+    background: DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: AppPalette.pageBackgroundFor(widget.darkMode),
       ),
-    );
-  }
+    ),
+    body: SafeArea(
+      bottom: false,
+      child: IndexedStack(index: i, children: _pages),
+    ),
+    bottomBar: GlassTabBar.bottom(
+      tabs: const [
+        GlassTab(icon: Icon(Icons.water_drop_outlined), label: '设备'),
+        GlassTab(icon: Icon(Icons.shower_outlined), label: '洗漱'),
+        GlassTab(icon: Icon(Icons.person_outline), label: '我的'),
+      ],
+      selectedIndex: i,
+      onTabSelected: (value) => setState(() => i = value),
+      horizontalPadding: 18,
+      verticalPadding: 12,
+      barHeight: 66,
+      indicatorColor: widget.darkMode
+          ? const Color(0xff343434)
+          : const Color(0x18000000),
+      selectedIconColor: widget.darkMode ? Colors.white : AppPalette.ink,
+      selectedLabelColor: widget.darkMode ? Colors.white : AppPalette.ink,
+      unselectedIconColor: widget.darkMode
+          ? const Color(0xffa9a9a9)
+          : AppPalette.mutedInk,
+      unselectedLabelColor: widget.darkMode
+          ? const Color(0xffa9a9a9)
+          : AppPalette.mutedInk,
+      quality: GlassQuality.minimal,
+      backgroundQuality: GlassQuality.minimal,
+      glowOpacity: widget.darkMode ? 0 : .6,
+      brightnessOverride: _effectiveTabBarBrightness,
+    ),
+  );
 }
 
+// ignore: unused_element
 class _FloatingNavigation extends StatelessWidget {
   const _FloatingNavigation({
     required this.wide,
