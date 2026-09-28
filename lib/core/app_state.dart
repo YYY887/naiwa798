@@ -18,7 +18,7 @@ class AppState extends ChangeNotifier {
   bool actionLoading = false;
   bool isDrinking = false;
   bool stopPending = false;
-  int selectedDeviceStatus = 99;
+  int selectedDeviceStatus = -1;
   int _idleStatusCount = 0;
   Timer? _statusTimer;
   bool dark = false;
@@ -123,13 +123,14 @@ class AppState extends ChangeNotifier {
       final a = (d['data']?['favos'] as List? ?? []);
       devices = a.map((v) {
         final x = Map<String, dynamic>.from(v);
+        final geneStatus = (x['gene']?['status'] as num?)?.toInt() ?? -1;
         return Device(
           id: '${x['id']}',
           name: remarks['${x['id']}']?.isNotEmpty == true
               ? remarks['${x['id']}']!
               : '${x['name'] ?? '设备'}',
-          online: x['status'] == 1,
-          status: x['gene']?['status'] ?? 99,
+          online: x['status'] == 1 && geneStatus != 99,
+          status: geneStatus,
           address: '${x['addr']?['detail'] ?? ''}',
         );
       }).toList();
@@ -149,16 +150,28 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> drink() async {
-    if (selected.isEmpty || actionLoading) return '请先选择设备';
+    if (selected.isEmpty) return '请先选择设备';
+    final selectedDevice = devices
+        .where((device) => device.id == selected)
+        .firstOrNull;
+    if (selectedDevice == null) return '请先选择设备';
+    if (!selectedDevice.online) return '设备离线，无法操作';
+    if (actionLoading) return '正在操作，请稍候';
     final start = !isDrinking;
     actionLoading = true;
     notifyListeners();
     try {
-      final d = await api.get(
+      final d = await api.signedDeviceGet(
         start ? 'dev/start' : 'dev/end',
         params: start
-            ? {'did': selected, 'upgrade': 'true', 'rcp': 'false', 'stype': '5'}
-            : {'did': selected},
+            ? {
+                'did': selected,
+                'upgrade': 'true',
+                'ptype': '21',
+                'rcp': 'false',
+                'cnt': '1',
+              }
+            : {'did': selected, 'rcp': 'false'},
       );
       final succeeded = d['code'] == 0;
       message = succeeded
@@ -171,7 +184,7 @@ class AppState extends ChangeNotifier {
         _startStatusPolling();
       }
       if (succeeded && !start) {
-        // Keep checking until the device itself reports idle (status 99).
+        // Keep checking until the device reports an inactive status.
         stopPending = true;
         _idleStatusCount = 0;
         _startStatusPolling();
@@ -267,11 +280,30 @@ class AppState extends ChangeNotifier {
     try {
       final result = await api.get(
         'ui/app/dev/status',
-        params: {'did': selected, 'more': 'true', 'promo': 'false'},
+        params: {'did': selected, 'more': '0'},
       );
-      final gene = result['data']?['device']?['gene'];
+      if (result['code'] != 0) {
+        selectedDeviceStatus = -1;
+        final index = devices.indexWhere((device) => device.id == selected);
+        if (index >= 0) {
+          final device = devices[index];
+          devices[index] = Device(
+            id: device.id,
+            name: device.name,
+            online: device.online,
+            status: -1,
+            address: device.address,
+          );
+        }
+        notifyListeners();
+        return;
+      }
+      final detail = result['data']?['device'];
+      final gene = detail is Map ? detail['gene'] : null;
       if (gene is! Map) return;
-      final status = (gene['status'] as num?)?.toInt() ?? 99;
+      final status = (gene['status'] as num?)?.toInt() ?? -1;
+      final active = status == 10 || status == 20 || status == 30;
+      final onlineStatus = detail['status'];
       selectedDeviceStatus = status;
       final index = devices.indexWhere((device) => device.id == selected);
       if (index >= 0) {
@@ -279,19 +311,26 @@ class AppState extends ChangeNotifier {
         devices[index] = Device(
           id: device.id,
           name: device.name,
-          online: device.online,
+          online:
+              status != 99 &&
+              (onlineStatus is num ? onlineStatus.toInt() == 1 : status != -1),
           status: status,
           address: device.address,
         );
       }
-      if (recover && status != 99) {
-        isDrinking = true;
-        message = 'Drinking';
-        _startStatusPolling();
-      }
-      if (status != 99) {
+      if (recover) {
+        isDrinking = active;
+        stopPending = false;
         _idleStatusCount = 0;
-      } else if (isDrinking && !recover) {
+        if (active) {
+          message = 'Drinking';
+          _startStatusPolling();
+        } else {
+          _stopStatusPolling();
+        }
+      } else if (active) {
+        _idleStatusCount = 0;
+      } else if (isDrinking) {
         _idleStatusCount += 1;
         if (stopPending || _idleStatusCount >= 3) {
           isDrinking = false;

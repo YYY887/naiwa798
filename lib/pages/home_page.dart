@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/app_state.dart';
 import '../core/app_palette.dart';
 import '../core/update_service.dart';
+import '../models/device.dart';
 import '../widgets/account_avatar.dart';
 import '../widgets/update_announcement.dart';
 import 'pangguai_scan_page.dart';
@@ -288,6 +289,7 @@ class DevicesPage extends StatelessWidget {
     final selected = state.devices
         .where((device) => device.id == state.selected)
         .firstOrNull;
+    final selectedOffline = selected == null || !selected.online;
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -487,7 +489,10 @@ class DevicesPage extends StatelessWidget {
                   width: 220,
                   height: 46,
                   child: ElevatedButton.icon(
-                    onPressed: state.actionLoading || state.stopPending
+                    onPressed:
+                        selectedOffline ||
+                            state.actionLoading ||
+                            state.stopPending
                         ? null
                         : () async {
                             final result = await state.drink();
@@ -495,7 +500,9 @@ class DevicesPage extends StatelessWidget {
                             ScaffoldMessenger.maybeOf(c)
                                 ?.showSnackBar(SnackBar(content: Text(result)));
                           },
-                    icon: state.actionLoading || state.stopPending
+                    icon: selectedOffline
+                        ? const Icon(Icons.wifi_off_rounded)
+                        : state.actionLoading || state.stopPending
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -506,7 +513,9 @@ class DevicesPage extends StatelessWidget {
                           )
                         : const Icon(Icons.water_drop_outlined),
                     label: Text(
-                      state.actionLoading || state.stopPending
+                      selectedOffline
+                          ? '设备离线'
+                          : state.actionLoading || state.stopPending
                           ? (state.isDrinking ? '正在停止中…' : '正在启动中…')
                           : state.isDrinking
                           ? '停止接水'
@@ -519,9 +528,14 @@ class DevicesPage extends StatelessWidget {
                       foregroundColor: state.isDrinking
                           ? Colors.white
                           : const Color(0xff12304f),
-                      disabledBackgroundColor: state.isDrinking
+                      disabledBackgroundColor: selectedOffline
+                          ? const Color(0xffbfc4cc)
+                          : state.isDrinking
                           ? const Color(0xffe45d68)
                           : const Color(0xffb4cce2),
+                      disabledForegroundColor: selectedOffline
+                          ? const Color(0xff616a76)
+                          : null,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
                       ),
@@ -537,19 +551,37 @@ class DevicesPage extends StatelessWidget {
   }
 }
 
-_DeviceStatus _deviceStatus(AppState state, dynamic device) {
+_DeviceStatus _deviceStatus(AppState state, Device? device) {
   if (device == null || !device.online) return _DeviceStatus.offline;
   if (device.id == state.selected &&
       (state.actionLoading || state.stopPending)) {
     return _DeviceStatus.busy;
   }
-  if (device.id == state.selected && state.isDrinking) {
-    return _DeviceStatus.running;
-  }
-  return _DeviceStatus.idle;
+  return switch (device.status) {
+    0 => _DeviceStatus.off,
+    1 => _DeviceStatus.on,
+    2 => _DeviceStatus.error,
+    10 => _DeviceStatus.running,
+    20 => _DeviceStatus.flushing,
+    30 => _DeviceStatus.preparing,
+    98 => _DeviceStatus.disabled,
+    99 => _DeviceStatus.offline,
+    _ => _DeviceStatus.unknown,
+  };
 }
 
-enum _DeviceStatus { busy, running, idle, offline }
+enum _DeviceStatus {
+  busy,
+  running,
+  flushing,
+  preparing,
+  on,
+  off,
+  disabled,
+  error,
+  unknown,
+  offline,
+}
 
 class _DeviceStatusBadge extends StatelessWidget {
   const _DeviceStatusBadge({required this.status});
@@ -560,7 +592,13 @@ class _DeviceStatusBadge extends StatelessWidget {
     final (label, color) = switch (status) {
       _DeviceStatus.busy => ('忙碌中', const Color(0xffd98235)),
       _DeviceStatus.running => ('进行中', const Color(0xff4779d5)),
-      _DeviceStatus.idle => ('空闲', const Color(0xff338d92)),
+      _DeviceStatus.flushing => ('冲洗中', const Color(0xffd98235)),
+      _DeviceStatus.preparing => ('准备中', const Color(0xffd98235)),
+      _DeviceStatus.on => ('开机', const Color(0xff338d92)),
+      _DeviceStatus.off => ('关闭', const Color(0xff7c8492)),
+      _DeviceStatus.disabled => ('已禁用', const Color(0xffb25858)),
+      _DeviceStatus.error => ('异常', const Color(0xffb25858)),
+      _DeviceStatus.unknown => ('状态未知', const Color(0xff7c8492)),
       _DeviceStatus.offline => ('离线', const Color(0xff7c8492)),
     };
     return Container(
