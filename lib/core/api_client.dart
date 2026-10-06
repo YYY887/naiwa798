@@ -6,6 +6,7 @@ import 'device_signer.dart';
 
 class ApiClient {
   String? token;
+  String? uid;
   static const base = 'https://i.ilife798.com/api/v1/';
   static const _deviceHeaders = {
     'User-Agent': 'iLife798/3.1.8 (Android)',
@@ -47,13 +48,18 @@ class ApiClient {
       throw StateError('${master['msg'] ?? '获取账号信息失败'}');
     }
     final account = master['data']?['account'];
-    final uid = account is Map ? account['id']?.toString() : null;
+    final currentUid =
+        uid ??
+        (account is Map ? (account['uid'] ?? account['id'])?.toString() : null);
     final rawServerTime = master['time'];
     final serverTime = rawServerTime is num
         ? rawServerTime.toInt()
         : int.tryParse('$rawServerTime');
-    if (uid == null || uid.length < 8 || serverTime == null) {
-      throw StateError('无法取得账号 UID 或服务器时间');
+    if (currentUid == null || currentUid.length < 8) {
+      throw StateError('缺少账号 UID，请重新登录或在凭证登录时填写 UID');
+    }
+    if (serverTime == null) {
+      throw StateError('无法取得服务器时间');
     }
 
     final offset = serverTime - ((before + after) ~/ 2);
@@ -71,7 +77,7 @@ class ApiClient {
     final signature = signDeviceRequest(
       params: params,
       token: currentToken,
-      uid: uid,
+      uid: currentUid,
       serverNowMs: serverNow,
     );
     return get(

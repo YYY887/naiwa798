@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final otp = List.generate(6, (_) => TextEditingController());
   final otpFocus = List.generate(6, (_) => FocusNode());
   final token = TextEditingController();
+  final uid = TextEditingController();
   late String seed;
   late String captchaUrl;
   bool tokenMode = false;
@@ -39,6 +40,7 @@ class _LoginPageState extends State<LoginPage> {
     captcha.dispose();
     sms.dispose();
     token.dispose();
+    uid.dispose();
     for (final item in otp) {
       item.dispose();
     }
@@ -170,7 +172,10 @@ class _LoginPageState extends State<LoginPage> {
                           '登录',
                           widget.state.authLoading
                               ? null
-                              : () => widget.state.login(token.text),
+                              : () => widget.state.login(
+                                  token.text,
+                                  uid: uid.text,
+                                ),
                         ),
                       ] else if (codeStep) ...[
                         Text(
@@ -472,9 +477,21 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: uid,
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: const InputDecoration(
+          labelText: '账号 UID（设备控制需要）',
+          hintText: '填写与登录凭证对应的 UID',
+          prefixIcon: Icon(Icons.person_outline_rounded),
+          border: OutlineInputBorder(),
+        ),
+      ),
       const SizedBox(height: 8),
       const Text(
-        '登录凭证仅保存在当前设备，用于快速登录。',
+        '登录凭证和 UID 仅保存在当前设备；验证码登录会自动获取 UID。',
         style: TextStyle(color: Color(0xff71809d), fontSize: 12),
       ),
     ],

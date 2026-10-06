@@ -16,17 +16,22 @@ class AppState extends ChangeNotifier {
   String selected = '', message = '';
   bool authLoading = false;
   bool actionLoading = false;
+  int? lastActionCode;
   bool isDrinking = false;
   bool stopPending = false;
+  bool statusPollingEnabled = false;
   int selectedDeviceStatus = -1;
   int _idleStatusCount = 0;
+  bool _hasSeenRunningStatus = false;
   Timer? _statusTimer;
+  Future<void>? _statusRequest;
   bool dark = false;
   final Map<String, String> remarks = {};
   final List<Map<String, String>> drinkingRecords = [];
   Future<void> init() async {
     token = await secure.read(key: 'token');
     api.token = token;
+    api.uid = await secure.read(key: 'uid');
     final p = await SharedPreferences.getInstance();
     dark = p.getBool('dark_mode') ?? p.getBool('dark') ?? false;
     selected = p.getString('selected_device') ?? '';
@@ -46,10 +51,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String v) async {
+  Future<void> login(String v, {String? uid}) async {
     if (v.trim().isEmpty) return;
-    token = v.trim();
+    final newToken = v.trim();
+    final tokenChanged = token != newToken;
+    token = newToken;
     api.token = token;
+    if (uid != null && uid.trim().length >= 8) {
+      api.uid = uid.trim();
+      await secure.write(key: 'uid', value: api.uid);
+    } else if (tokenChanged) {
+      api.uid = null;
+      await secure.delete(key: 'uid');
+    }
     await secure.write(key: 'token', value: token);
     await refresh();
     notifyListeners();
@@ -87,8 +101,9 @@ class AppState extends ChangeNotifier {
         },
       );
       final next = result['data']?['al']?['token']?.toString();
+      final uid = result['data']?['al']?['uid']?.toString();
       if (result['code'] == 0 && next != null && next.isNotEmpty) {
-        await login(next);
+        await login(next, uid: uid);
         return null;
       }
       return '${result['msg'] ?? 'Invalid verification code'}';
@@ -103,14 +118,17 @@ class AppState extends ChangeNotifier {
   Future<void> logout() async {
     token = null;
     api.token = null;
+    api.uid = null;
     devices = [];
     account = null;
     await secure.delete(key: 'token');
+    await secure.delete(key: 'uid');
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove('selected_device');
     selected = '';
     isDrinking = false;
     stopPending = false;
+    _hasSeenRunningStatus = false;
     _stopStatusPolling();
     notifyListeners();
   }
@@ -129,7 +147,7 @@ class AppState extends ChangeNotifier {
           name: remarks['${x['id']}']?.isNotEmpty == true
               ? remarks['${x['id']}']!
               : '${x['name'] ?? '设备'}',
-          online: x['status'] == 1 && geneStatus != 99,
+          online: x['status'] == 1,
           status: geneStatus,
           address: '${x['addr']?['detail'] ?? ''}',
         );
@@ -150,6 +168,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> drink() async {
+    lastActionCode = null;
     if (selected.isEmpty) return '请先选择设备';
     final selectedDevice = devices
         .where((device) => device.id == selected)
@@ -173,14 +192,21 @@ class AppState extends ChangeNotifier {
               }
             : {'did': selected, 'rcp': 'false'},
       );
+      lastActionCode = (d['code'] as num?)?.toInt();
       final succeeded = d['code'] == 0;
       message = succeeded
           ? (start ? 'Drinking' : 'Settled')
           : '${d['msg'] ?? '操作失败'}';
+      if (lastActionCode == -2) {
+        final actionMessage = message;
+        await checkDeviceStatus(recover: true);
+        return actionMessage;
+      }
       if (succeeded && start) {
         isDrinking = true;
         stopPending = false;
         _idleStatusCount = 0;
+        _hasSeenRunningStatus = false;
         _startStatusPolling();
       }
       if (succeeded && !start) {
@@ -205,6 +231,9 @@ class AppState extends ChangeNotifier {
       }
       if (succeeded && !start) await refresh();
       return succeeded ? (start ? '已开始接水' : '已停止接水') : message;
+    } on StateError catch (error) {
+      message = error.message.toString();
+      return message;
     } catch (_) {
       message = '操作失败，请稍后重试';
       return message;
@@ -269,6 +298,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> selectDevice(String id) async {
     selected = id;
+    _hasSeenRunningStatus = false;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('selected_device', id);
     await checkDeviceStatus(recover: true);
@@ -276,12 +306,28 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> checkDeviceStatus({bool recover = false}) async {
+    while (_statusRequest != null) {
+      if (!recover) return;
+      await _statusRequest;
+    }
+    final request = _fetchDeviceStatus(recover: recover);
+    _statusRequest = request;
+    try {
+      await request;
+    } finally {
+      if (identical(_statusRequest, request)) _statusRequest = null;
+    }
+  }
+
+  Future<void> _fetchDeviceStatus({required bool recover}) async {
     if (selected.isEmpty || token == null) return;
+    final queriedDeviceId = selected;
     try {
       final result = await api.get(
         'ui/app/dev/status',
-        params: {'did': selected, 'more': '0'},
+        params: {'did': queriedDeviceId, 'more': '0'},
       );
+      if (selected != queriedDeviceId) return;
       if (result['code'] != 0) {
         selectedDeviceStatus = -1;
         final index = devices.indexWhere((device) => device.id == selected);
@@ -302,18 +348,21 @@ class AppState extends ChangeNotifier {
       final gene = detail is Map ? detail['gene'] : null;
       if (gene is! Map) return;
       final status = (gene['status'] as num?)?.toInt() ?? -1;
-      final active = status == 10 || status == 20 || status == 30;
       final onlineStatus = detail['status'];
       selectedDeviceStatus = status;
       final index = devices.indexWhere((device) => device.id == selected);
+      final online = onlineStatus is num
+          ? onlineStatus.toInt() == 1
+          : index >= 0 && devices[index].online;
+      final active =
+          online &&
+          (status == 1 || status == 10 || status == 20 || status == 30);
       if (index >= 0) {
         final device = devices[index];
         devices[index] = Device(
           id: device.id,
           name: device.name,
-          online:
-              status != 99 &&
-              (onlineStatus is num ? onlineStatus.toInt() == 1 : status != -1),
+          online: online,
           status: status,
           address: device.address,
         );
@@ -322,6 +371,7 @@ class AppState extends ChangeNotifier {
         isDrinking = active;
         stopPending = false;
         _idleStatusCount = 0;
+        _hasSeenRunningStatus = active;
         if (active) {
           message = 'Drinking';
           _startStatusPolling();
@@ -330,11 +380,19 @@ class AppState extends ChangeNotifier {
         }
       } else if (active) {
         _idleStatusCount = 0;
+        _hasSeenRunningStatus = true;
+        if (!isDrinking) {
+          isDrinking = true;
+          stopPending = false;
+          message = 'Drinking';
+          _startStatusPolling();
+        }
       } else if (isDrinking) {
         _idleStatusCount += 1;
-        if (stopPending || _idleStatusCount >= 3) {
+        if (stopPending || _hasSeenRunningStatus || _idleStatusCount >= 3) {
           isDrinking = false;
           stopPending = false;
+          _hasSeenRunningStatus = false;
           message = 'Settled';
           _stopStatusPolling();
         }
@@ -348,7 +406,8 @@ class AppState extends ChangeNotifier {
   void _startStatusPolling() {
     _stopStatusPolling();
     checkDeviceStatus();
-    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _statusTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!statusPollingEnabled) return;
       if (!isDrinking) {
         _stopStatusPolling();
         return;

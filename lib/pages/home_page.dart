@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -21,9 +23,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomeState();
 }
 
-class _HomeState extends State<HomePage> {
+class _HomeState extends State<HomePage> with WidgetsBindingObserver {
   int i = 0;
   final _updateService = UpdateService();
+  Timer? _deviceStatusTimer;
   ValueNotifier<Brightness>? _tabBarBrightness;
   late final List<Widget> _pages;
 
@@ -35,12 +38,55 @@ class _HomeState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.state.statusPollingEnabled = true;
     _pages = [
       DevicesPage(state: widget.state),
       const PangGuaiScanPage(embedded: true),
       ProfilePage(state: widget.state),
     ];
+    _startDeviceStatusTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
+  }
+
+  void _startDeviceStatusTimer() {
+    _deviceStatusTimer?.cancel();
+    var idleTicks = 0;
+    _deviceStatusTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted &&
+          i == 0 &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          !widget.state.isDrinking) {
+        idleTicks += 1;
+        if (idleTicks >= 2) {
+          idleTicks = 0;
+          unawaited(widget.state.checkDeviceStatus());
+        }
+      } else {
+        idleTicks = 0;
+      }
+    });
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    WidgetsBinding.instance.removeObserver(this);
+    WidgetsBinding.instance.addObserver(this);
+    widget.state.statusPollingEnabled =
+        i == 0 &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    _startDeviceStatusTimer();
+    unawaited(widget.state.checkDeviceStatus());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    widget.state.statusPollingEnabled =
+        lifecycleState == AppLifecycleState.resumed && i == 0;
+    if (lifecycleState == AppLifecycleState.resumed && i == 0) {
+      unawaited(widget.state.checkDeviceStatus());
+    }
   }
 
   @override
@@ -55,6 +101,9 @@ class _HomeState extends State<HomePage> {
 
   @override
   void dispose() {
+    widget.state.statusPollingEnabled = false;
+    _deviceStatusTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tabBarBrightness?.dispose();
     super.dispose();
   }
@@ -141,7 +190,11 @@ class _HomeState extends State<HomePage> {
         GlassTab(icon: Icon(Icons.person_outline), label: '我的'),
       ],
       selectedIndex: i,
-      onTabSelected: (value) => setState(() => i = value),
+      onTabSelected: (value) {
+        setState(() => i = value);
+        widget.state.statusPollingEnabled = value == 0;
+        if (value == 0) unawaited(widget.state.checkDeviceStatus());
+      },
       horizontalPadding: 18,
       verticalPadding: 12,
       barHeight: 66,
@@ -497,6 +550,23 @@ class DevicesPage extends StatelessWidget {
                         : () async {
                             final result = await state.drink();
                             if (!c.mounted || result == null) return;
+                            if (state.lastActionCode == -2) {
+                              await showDialog<void>(
+                                context: c,
+                                builder: (dialogContext) => AlertDialog(
+                                  title: const Text('设备正在运行'),
+                                  content: Text(result),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogContext),
+                                      child: const Text('知道了'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
                             ScaffoldMessenger.maybeOf(c)
                                 ?.showSnackBar(SnackBar(content: Text(result)));
                           },
@@ -557,15 +627,18 @@ _DeviceStatus _deviceStatus(AppState state, Device? device) {
       (state.actionLoading || state.stopPending)) {
     return _DeviceStatus.busy;
   }
+  if (device.id == state.selected && state.isDrinking) {
+    return _DeviceStatus.running;
+  }
   return switch (device.status) {
     0 => _DeviceStatus.off,
-    1 => _DeviceStatus.on,
+    1 => _DeviceStatus.running,
     2 => _DeviceStatus.error,
     10 => _DeviceStatus.running,
     20 => _DeviceStatus.flushing,
     30 => _DeviceStatus.preparing,
     98 => _DeviceStatus.disabled,
-    99 => _DeviceStatus.offline,
+    99 => _DeviceStatus.standby,
     _ => _DeviceStatus.unknown,
   };
 }
@@ -575,11 +648,11 @@ enum _DeviceStatus {
   running,
   flushing,
   preparing,
-  on,
   off,
   disabled,
   error,
   unknown,
+  standby,
   offline,
 }
 
@@ -594,11 +667,11 @@ class _DeviceStatusBadge extends StatelessWidget {
       _DeviceStatus.running => ('进行中', const Color(0xff4779d5)),
       _DeviceStatus.flushing => ('冲洗中', const Color(0xffd98235)),
       _DeviceStatus.preparing => ('准备中', const Color(0xffd98235)),
-      _DeviceStatus.on => ('开机', const Color(0xff338d92)),
       _DeviceStatus.off => ('关闭', const Color(0xff7c8492)),
       _DeviceStatus.disabled => ('已禁用', const Color(0xffb25858)),
       _DeviceStatus.error => ('异常', const Color(0xffb25858)),
       _DeviceStatus.unknown => ('状态未知', const Color(0xff7c8492)),
+      _DeviceStatus.standby => ('待机', const Color(0xff338d92)),
       _DeviceStatus.offline => ('离线', const Color(0xff7c8492)),
     };
     return Container(
