@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'core/app_state.dart';
+import 'core/app_palette.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 
@@ -33,26 +34,18 @@ class _AppState extends State<App> {
   }
 
   @override
+  void dispose() {
+    state.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: state,
     builder: (context, child) => MaterialApp(
       themeMode: state.dark ? ThemeMode.dark : ThemeMode.light,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff277eab),
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff277eab),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: AppPalette.themeFor(false),
+      darkTheme: AppPalette.themeFor(true),
       themeAnimationDuration: Duration.zero,
       builder: (context, child) => Material(
         type: MaterialType.transparency,

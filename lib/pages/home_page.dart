@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,8 +10,12 @@ import '../core/app_palette.dart';
 import '../core/update_service.dart';
 import '../models/device.dart';
 import '../widgets/account_avatar.dart';
+import '../widgets/app_ui.dart';
+import '../widgets/buddy_picker.dart';
+import '../widgets/water_buddy.dart';
 import '../widgets/update_announcement.dart';
-import 'pangguai_scan_page.dart';
+import 'drinking_records_page.dart';
+import 'unified_scan_page.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -28,7 +31,19 @@ class _HomeState extends State<HomePage> with WidgetsBindingObserver {
   final _updateService = UpdateService();
   Timer? _deviceStatusTimer;
   ValueNotifier<Brightness>? _tabBarBrightness;
-  late final List<Widget> _pages;
+  // Flutter preserves child State by position while fresh widgets keep tab
+  // content current after hot reload and changes to the tab layout.
+  List<Widget> get _pages => [
+    ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, child) => DevicesPage(state: widget.state),
+    ),
+    DrinkingRecordsPage(state: widget.state, embedded: true),
+    ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, child) => ProfilePage(state: widget.state),
+    ),
+  ];
 
   ValueNotifier<Brightness> get _effectiveTabBarBrightness =>
       _tabBarBrightness ??= ValueNotifier(
@@ -40,11 +55,6 @@ class _HomeState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.state.statusPollingEnabled = true;
-    _pages = [
-      DevicesPage(state: widget.state),
-      const PangGuaiScanPage(embedded: true),
-      ProfilePage(state: widget.state),
-    ];
     _startDeviceStatusTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
   }
@@ -172,163 +182,55 @@ class _HomeState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => GlassScaffold(
-    backgroundColor: widget.darkMode ? Colors.black : const Color(0xfff7f8fa),
-    background: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: AppPalette.pageBackgroundFor(widget.darkMode),
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppPalette.pageColorFor(widget.darkMode),
+    body: GlassScaffold(
+      backgroundColor: AppPalette.pageColorFor(widget.darkMode),
+      background: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: AppPalette.pageBackgroundFor(widget.darkMode),
+        ),
       ),
-    ),
-    body: SafeArea(
-      bottom: false,
-      child: IndexedStack(index: i, children: _pages),
-    ),
-    bottomBar: GlassTabBar.bottom(
-      tabs: const [
-        GlassTab(icon: Icon(Icons.water_drop_outlined), label: '设备'),
-        GlassTab(icon: Icon(Icons.shower_outlined), label: '洗漱'),
-        GlassTab(icon: Icon(Icons.person_outline), label: '我的'),
-      ],
-      selectedIndex: i,
-      onTabSelected: (value) {
-        setState(() => i = value);
-        widget.state.statusPollingEnabled = value == 0;
-        if (value == 0) unawaited(widget.state.checkDeviceStatus());
-      },
-      horizontalPadding: 18,
-      verticalPadding: 12,
-      barHeight: 66,
-      indicatorColor: widget.darkMode
-          ? const Color(0xff343434)
-          : const Color(0x18000000),
-      selectedIconColor: widget.darkMode ? Colors.white : AppPalette.ink,
-      selectedLabelColor: widget.darkMode ? Colors.white : AppPalette.ink,
-      unselectedIconColor: widget.darkMode
-          ? const Color(0xffa9a9a9)
-          : AppPalette.mutedInk,
-      unselectedLabelColor: widget.darkMode
-          ? const Color(0xffa9a9a9)
-          : AppPalette.mutedInk,
-      quality: GlassQuality.minimal,
-      backgroundQuality: GlassQuality.minimal,
-      glowOpacity: widget.darkMode ? 0 : .6,
-      brightnessOverride: _effectiveTabBarBrightness,
-    ),
-  );
-}
-
-// ignore: unused_element
-class _FloatingNavigation extends StatelessWidget {
-  const _FloatingNavigation({
-    required this.wide,
-    required this.dark,
-    required this.selectedIndex,
-    required this.onSelect,
-    required this.onScan,
-  });
-  final bool wide;
-  final bool dark;
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onScan;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: wide ? 360 : null,
-    margin: EdgeInsets.fromLTRB(wide ? 0 : 20, 0, wide ? 0 : 20, 18),
-    padding: const EdgeInsets.all(6),
-    decoration: BoxDecoration(
-      color: dark ? Colors.black : const Color(0xcfffffff),
-      border: Border.all(
-        color: dark ? const Color(0xff323232) : const Color(0xaaffffff),
-      ),
-      borderRadius: BorderRadius.circular(28),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x260f244d),
-          blurRadius: 22,
-          offset: Offset(0, 9),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: _NavigationItem(
-            label: '设备',
-            icon: Icons.water_drop_outlined,
-            selected: selectedIndex == 0,
-            dark: dark,
-            onTap: () => onSelect(0),
-          ),
-        ),
-        Expanded(
-          child: _NavigationItem(
-            label: '胖乖洗澡',
-            icon: Icons.shower_outlined,
-            selected: selectedIndex == 1,
-            dark: dark,
-            onTap: onScan,
-          ),
-        ),
-        Expanded(
-          child: _NavigationItem(
-            label: '我的',
-            icon: Icons.person_outline_rounded,
-            selected: selectedIndex == 2,
-            dark: dark,
-            onTap: () => onSelect(2),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.dark,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final bool dark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: selected
-        ? (dark ? const Color(0xff202020) : const Color(0xffe7f3f4))
-        : Colors.transparent,
-    borderRadius: BorderRadius.circular(22),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: SizedBox(
-        height: 54,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: i,
           children: [
-            Icon(
-              icon,
-              size: 21,
-              color: dark ? Colors.white : const Color(0xff171717),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: dark ? Colors.white : const Color(0xff171717),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            for (final (index, page) in _pages.indexed)
+              TickerMode(enabled: index == i, child: page),
           ],
         ),
+      ),
+      bottomBar: GlassTabBar.bottom(
+        tabs: const [
+          GlassTab(icon: Icon(Icons.water_drop_outlined), label: '设备'),
+          GlassTab(icon: Icon(Icons.history_rounded), label: '记录'),
+          GlassTab(icon: Icon(Icons.person_outline), label: '我的'),
+        ],
+        selectedIndex: i,
+        onTabSelected: (value) {
+          setState(() => i = value);
+          widget.state.statusPollingEnabled = value == 0;
+          if (value == 0) unawaited(widget.state.checkDeviceStatus());
+        },
+        horizontalPadding: 18,
+        verticalPadding: 12,
+        barHeight: 66,
+        indicatorColor: widget.darkMode
+            ? const Color(0xff244362)
+            : const Color(0xffe4f0ff),
+        selectedIconColor: AppColors(widget.darkMode).accent,
+        selectedLabelColor: AppColors(widget.darkMode).accent,
+        unselectedIconColor: widget.darkMode
+            ? const Color(0xffa9a9a9)
+            : AppPalette.mutedInk,
+        unselectedLabelColor: widget.darkMode
+            ? const Color(0xffa9a9a9)
+            : AppPalette.mutedInk,
+        quality: GlassQuality.minimal,
+        backgroundQuality: GlassQuality.minimal,
+        glowOpacity: widget.darkMode ? 0 : .6,
+        brightnessOverride: _effectiveTabBarBrightness,
       ),
     ),
   );
@@ -337,26 +239,71 @@ class _NavigationItem extends StatelessWidget {
 class DevicesPage extends StatelessWidget {
   const DevicesPage({required this.state, super.key});
   final AppState state;
+
+  Future<void> _operate(BuildContext context) async {
+    final result = await state.drink();
+    if (!context.mounted || result == null) return;
+    if (state.lastActionCode == -2) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('设备正在运行'),
+          content: Text(result),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 104),
+        content: Text(result),
+      ),
+    );
+  }
+
+  void _scan(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => UnifiedScanPage(state: state)),
+  );
+
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
+    final colors = AppColors(state.dark);
     final selected = state.devices
         .where((device) => device.id == state.selected)
         .firstOrNull;
-    final selectedOffline = selected == null || !selected.online;
+    final offline = selected == null || !selected.online;
+    final busy = state.actionLoading || state.stopPending;
+    final label = offline
+        ? '设备离线'
+        : busy
+        ? (state.isDrinking ? '正在停止中…' : '正在启动中…')
+        : state.isDrinking
+        ? '停止接水'
+        : '开始接水';
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
+        constraints: const BoxConstraints(maxWidth: 560),
         child: RefreshIndicator(
           onRefresh: state.refresh,
+          color: colors.accent,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 112),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
             children: [
               Row(
                 children: [
                   AccountAvatar(
                     account: state.account,
-                    size: 46,
+                    size: 42,
                     dark: state.dark,
                   ),
                   const SizedBox(width: 12),
@@ -366,250 +313,335 @@ class DevicesPage extends StatelessWidget {
                       children: [
                         Text(
                           '${state.account?['name'] ?? '798 用户'}',
-                          style: Theme.of(c).textTheme.titleLarge,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
-                          '${state.account?['pn'] ?? '账户'}',
-                          style: const TextStyle(color: Color(0xff65728f)),
+                          '今天也记得喝水',
+                          style: TextStyle(color: colors.muted, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: '扫码添加设备',
-                    onPressed: () => Navigator.push(
-                      c,
-                      MaterialPageRoute(
-                        builder: (_) => BindDevicePage(state: state),
-                      ),
-                    ),
-                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                  IconButton.filledTonal(
+                    tooltip: '扫一扫：饮水设备 / 胖乖洗澡',
+                    onPressed: () => _scan(context),
                     style: IconButton.styleFrom(
-                      minimumSize: const Size(40, 40),
-                      maximumSize: const Size(40, 40),
-                      backgroundColor: const Color(0xbfffffff),
-                      foregroundColor: const Color(0xff171717),
+                      backgroundColor: colors.surface,
+                      foregroundColor: colors.accent,
+                      side: BorderSide(color: colors.border),
                     ),
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 21),
                   ),
                 ],
               ),
-              if (state.devices.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                _FrostedPanel(
-                  height: 122,
-                  dark: state.dark,
-                  child: Column(
+              const SizedBox(height: 28),
+              Stack(
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '当前设备',
-                        style: TextStyle(
-                          color: state.dark
-                              ? Color(0xffd5d5d5)
-                              : Color(0xff58677e),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        selected?.name ?? '请选择设备',
-                        style: TextStyle(
-                          color: state.dark ? Colors.white : Color(0xff1d2947),
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          _DeviceStatusBadge(
-                            status: _deviceStatus(state, selected),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('设备列表', style: Theme.of(c).textTheme.titleLarge),
-                  Text(
-                    '共 ${state.devices.length} 台',
-                    style: const TextStyle(color: Color(0xff65728f)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (state.devices.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    '暂无设备，请扫码添加',
-                    style: TextStyle(color: Color(0xff65728f), fontSize: 15),
-                  ),
-                )
-              else ...[
-                ...state.devices.map(
-                  (device) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: GestureDetector(
-                      onLongPress: () => _showDeviceActions(c, state, device),
-                      child: _FrostedPanel(
-                        height: 96,
-                        dark: state.dark,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: state.dark
-                                    ? const Color(0xff252525)
-                                    : const Color(0xffe6f5f5),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                Icons.water_drop_outlined,
-                                color: state.dark
-                                    ? Colors.white
-                                    : Color(0xff277eab),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    device.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: state.dark
-                                          ? Colors.white
-                                          : Color(0xff1d2947),
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                      SizedBox(
+                        height: 116,
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 124),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '喝水吧',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '今天也要元气满满',
+                                  style: TextStyle(
+                                    color: colors.muted,
+                                    fontSize: 13,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    device.address,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: state.dark
-                                          ? Color(0xffc9c9c9)
-                                          : Color(0xff65728f),
-                                      fontSize: 13,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (selected != null)
+                        AppSurface(
+                          dark: state.dark,
+                          background: state.dark
+                              ? const Color(0xff1a3049)
+                              : const Color(0xfff0f7ff),
+                          padding: const EdgeInsets.all(22),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 110),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      '当前设备',
+                                      style: TextStyle(
+                                        color: colors.muted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    _DeviceStatusBadge(
+                                      status: _deviceStatus(state, selected),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 22),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          selected.name,
+                                          style: TextStyle(
+                                            color: colors.ink,
+                                            fontSize: 23,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: -.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          selected.address.isEmpty
+                                              ? '已绑定的饮水设备'
+                                              : selected.address,
+                                          style: TextStyle(
+                                            color: colors.muted,
+                                            fontSize: 12,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: offline || busy
+                                      ? null
+                                      : () => _operate(context),
+                                  icon: busy
+                                      ? const SizedBox(
+                                          width: 17,
+                                          height: 17,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Icon(
+                                          offline
+                                              ? Icons.wifi_off_rounded
+                                              : state.isDrinking
+                                              ? Icons.stop_rounded
+                                              : Icons.water_drop_outlined,
+                                          size: 20,
+                                        ),
+                                  label: Text(label),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(0, 54),
+                                    elevation: 0,
+                                    backgroundColor: state.isDrinking
+                                        ? colors.danger
+                                        : AppPalette.primary,
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor: offline
+                                        ? colors.field
+                                        : state.isDrinking
+                                        ? colors.danger.withValues(alpha: .7)
+                                        : colors.tint,
+                                    disabledForegroundColor: offline
+                                        ? colors.muted
+                                        : colors.ink,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        AppSurface(
+                          dark: state.dark,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
+                              const AppIconBadge(
+                                icon: Icons.water_drop_outlined,
+                                size: 64,
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                '添加你的第一台饮水机',
+                                style: TextStyle(
+                                  color: colors.ink,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '暂无设备，请扫码添加',
+                                style: TextStyle(
+                                  color: colors.muted,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 22),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _scan(context),
+                                  icon: const Icon(
+                                    Icons.qr_code_scanner_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('扫码添加设备'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (selected != null)
+                    Positioned(
+                      top: 116 - state.buddy.seatOffset,
+                      right: 14,
+                      child: Semantics(
+                        label: '当前角色：${state.buddy.label}，长按更换角色',
+                        button: true,
+                        onLongPress: () => showBuddyPicker(context, state),
+                        child: Tooltip(
+                          message: '长按更换角色',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onLongPress: () => showBuddyPicker(context, state),
+                            child: WaterBuddy(character: state.buddy),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (state.devices.isNotEmpty) ...[
+                AppSectionHeading(
+                  '我的设备',
+                  trailing: Text(
+                    '${state.devices.length} 台',
+                    style: TextStyle(color: colors.muted, fontSize: 12),
+                  ),
+                ),
+                for (final device in state.devices)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: GestureDetector(
+                      onLongPress: () =>
+                          _showDeviceActions(context, state, device),
+                      child: AppSurface(
+                        dark: state.dark,
+                        selected: device.id == state.selected,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+                        onTap: () => state.selectDevice(device.id),
+                        child: Row(
+                          children: [
+                            const AppIconBadge(
+                              icon: Icons.water_drop_outlined,
+                              size: 40,
                             ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                _DeviceStatusBadge(
-                                  status: _deviceStatus(state, device),
-                                ),
-                                const SizedBox(height: 6),
-                                Icon(
-                                  device.id == state.selected
-                                      ? Icons.check_circle_rounded
-                                      : Icons.more_horiz_rounded,
-                                  size: 20,
-                                  color: state.dark
-                                      ? Colors.white
-                                      : const Color(0xff171717),
-                                ),
-                              ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    device.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: colors.ink,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (device.address.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      device.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: colors.muted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  _DeviceStatusBadge(
+                                    status: _deviceStatus(state, device),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (device.id == state.selected) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: colors.accent,
+                                size: 18,
+                              ),
+                            ],
+                            IconButton(
+                              tooltip: '${device.name}更多操作',
+                              onPressed: () =>
+                                  _showDeviceActions(context, state, device),
+                              icon: Icon(
+                                Icons.more_horiz_rounded,
+                                color: colors.muted,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: 220,
-                  height: 46,
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        selectedOffline ||
-                            state.actionLoading ||
-                            state.stopPending
-                        ? null
-                        : () async {
-                            final result = await state.drink();
-                            if (!c.mounted || result == null) return;
-                            if (state.lastActionCode == -2) {
-                              await showDialog<void>(
-                                context: c,
-                                builder: (dialogContext) => AlertDialog(
-                                  title: const Text('设备正在运行'),
-                                  content: Text(result),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext),
-                                      child: const Text('知道了'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              return;
-                            }
-                            ScaffoldMessenger.maybeOf(c)
-                                ?.showSnackBar(SnackBar(content: Text(result)));
-                          },
-                    icon: selectedOffline
-                        ? const Icon(Icons.wifi_off_rounded)
-                        : state.actionLoading || state.stopPending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.water_drop_outlined),
-                    label: Text(
-                      selectedOffline
-                          ? '设备离线'
-                          : state.actionLoading || state.stopPending
-                          ? (state.isDrinking ? '正在停止中…' : '正在启动中…')
-                          : state.isDrinking
-                          ? '停止接水'
-                          : '开始接水',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: state.isDrinking
-                          ? const Color(0xffe45d68)
-                          : const Color(0xff79b9ef),
-                      foregroundColor: state.isDrinking
-                          ? Colors.white
-                          : const Color(0xff12304f),
-                      disabledBackgroundColor: selectedOffline
-                          ? const Color(0xffbfc4cc)
-                          : state.isDrinking
-                          ? const Color(0xffe45d68)
-                          : const Color(0xffb4cce2),
-                      disabledForegroundColor: selectedOffline
-                          ? const Color(0xff616a76)
-                          : null,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
+                Text(
+                  '点击设备切换，右侧菜单可修改备注或删除',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.muted,
+                    fontSize: 11,
+                    height: 1.5,
                   ),
                 ),
               ],
@@ -780,153 +812,4 @@ Future<void> _confirmRemove(
     ),
   );
   if (confirmed == true) await state.remove(device.id);
-}
-
-class _FrostedPanel extends StatelessWidget {
-  const _FrostedPanel({required this.child, this.height, this.dark = false});
-  final Widget child;
-  final double? height;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: height,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: dark
-            ? const [Color(0xff181818), Color(0xff0b0b0b)]
-            : const [Color(0xdffeffff), Color(0xc6f8ece6)],
-      ),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
-        color: dark ? const Color(0xff363636) : const Color(0x99ffffff),
-      ),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1f406c7c),
-          blurRadius: 20,
-          offset: Offset(0, 9),
-        ),
-      ],
-    ),
-    child: child,
-  );
-}
-
-class BindDevicePage extends StatefulWidget {
-  const BindDevicePage({required this.state, super.key});
-  final AppState state;
-  @override
-  State<BindDevicePage> createState() => _BindDevicePageState();
-}
-
-class _BindDevicePageState extends State<BindDevicePage> {
-  final scanner = MobileScannerController();
-  bool handled = false;
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: '返回',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                  ),
-                ),
-                const Expanded(
-                  child: Text(
-                    '扫码添加设备',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-            const SizedBox(height: 7),
-            const Text(
-              '请将净水设备二维码放入框内',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xffc7c7c7), fontSize: 13),
-            ),
-            Expanded(
-              child: Center(
-                child: SizedBox(
-                  width: 236,
-                  height: 236,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(26),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        MobileScanner(controller: scanner, onDetect: _onDetect),
-                        IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.white, width: 2),
-                              borderRadius: BorderRadius.circular(26),
-                            ),
-                          ),
-                        ),
-                        if (handled)
-                          const ColoredBox(
-                            color: Color(0x66000000),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  Future<void> _onDetect(BarcodeCapture capture) async {
-    if (handled) return;
-    final raw = capture.barcodes.firstOrNull?.rawValue ?? '';
-    final id = RegExp(r'\d{8,20}').firstMatch(raw)?.group(0);
-    if (id == null) return;
-    setState(() => handled = true);
-    await scanner.stop();
-    final error = await widget.state.bind(id);
-    if (!mounted) return;
-    if (error != null) {
-      setState(() => handled = false);
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(SnackBar(content: Text(error)));
-      await scanner.start();
-      return;
-    }
-    Navigator.of(context).pop();
-  }
-
-  @override
-  void dispose() {
-    scanner.dispose();
-    super.dispose();
-  }
 }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/app_state.dart';
+import '../core/app_palette.dart';
+import '../widgets/app_ui.dart';
 import '../widgets/account_avatar.dart';
 import 'app_settings_page.dart';
 import 'drinking_records_page.dart';
@@ -14,229 +16,181 @@ class ProfilePage extends StatelessWidget {
   final AppState state;
 
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.topCenter,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 112),
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '我的',
-                style: TextStyle(
-                  color: state.dark ? Colors.white : const Color(0xff171717),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              IconButton(
-                tooltip: '应用设置',
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => AppSettingsPage(state: state),
-                  ),
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0x99ffffff),
-                  foregroundColor: state.dark
-                      ? Colors.white
-                      : const Color(0xff171717),
-                ),
-                icon: const Icon(Icons.settings_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => _copyToken(context, state.token),
-            child: _ProfilePanel(
+  Widget build(BuildContext context) {
+    final colors = AppColors(state.dark);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
+          children: [
+            const AppHeader(title: '我的', subtitle: '把喝水这件小事，放进日常'),
+            AppSurface(
               dark: state.dark,
-              child: Row(
+              padding: const EdgeInsets.all(22),
+              onTap: () => _copyCredentials(context, state),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AccountAvatar(
-                    account: state.account,
-                    size: 62,
-                    dark: state.dark,
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${state.account?['name'] ?? '用户'}',
-                          style: TextStyle(
-                            color: state.dark
-                                ? Colors.white
-                                : Color(0xff171717),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
+                  Row(
+                    children: [
+                      AccountAvatar(
+                        account: state.account,
+                        size: 58,
+                        dark: state.dark,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${state.account?['name'] ?? '用户'}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.ink,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -.5,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              '${state.account?['pn'] ?? '已登录账户'}',
+                              style: TextStyle(
+                                color: colors.muted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${state.account?['pn'] ?? '已登录账户'}',
-                          style: TextStyle(
-                            color: state.dark
-                                ? const Color(0xffc9c9c9)
-                                : const Color(0xff65728f),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.copy_outlined, color: colors.accent, size: 20),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.field,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.key_outlined,
+                          size: 15,
+                          color: colors.accent,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '点击卡片，复制完整登录密钥',
+                            style: TextStyle(color: colors.muted, fontSize: 11),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.copy_outlined,
-                    color: state.dark ? Colors.white : const Color(0xff171717),
+                ],
+              ),
+            ),
+            const AppSectionHeading('日常与设备'),
+            AppSurface(
+              dark: state.dark,
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  AppMenuRow(
+                    icon: Icons.history_rounded,
+                    title: '喝水记录',
+                    subtitle: '回看每一次补水时刻',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DrinkingRecordsPage(state: state),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(left: 72, right: 18),
+                    child: Divider(),
+                  ),
+                  AppMenuRow(
+                    icon: Icons.widgets_outlined,
+                    title: '桌面快捷组件',
+                    subtitle: '常用设备，一键开始接水',
+                    onTap: () => _chooseWidgetDevice(context, state),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          _ProfilePanel(
-            dark: state.dark,
-            padding: EdgeInsets.zero,
-            child: ListTile(
-              leading: Icon(
-                Icons.settings_outlined,
-                color: state.dark ? Colors.white : const Color(0xff171717),
-              ),
-              title: Text(
-                '应用设置',
-                style: TextStyle(
-                  color: state.dark ? Colors.white : Color(0xff171717),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(
-                '主题、更新与隐私设置',
-                style: TextStyle(
-                  color: state.dark
-                      ? const Color(0xffc9c9c9)
-                      : const Color(0xff65728f),
-                  fontSize: 12,
-                ),
-              ),
-              trailing: Icon(
-                Icons.chevron_right_rounded,
-                color: state.dark ? Colors.white : const Color(0xff171717),
-              ),
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => AppSettingsPage(state: state),
+            const AppSectionHeading('偏好设置'),
+            AppSurface(
+              dark: state.dark,
+              padding: EdgeInsets.zero,
+              child: AppMenuRow(
+                icon: Icons.tune_rounded,
+                title: '应用设置',
+                subtitle: '外观、版本更新与隐私',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AppSettingsPage(state: state),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '常用',
-            style: TextStyle(
-              color: state.dark ? Colors.white : const Color(0xff58677e),
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 9),
-          _ProfilePanel(
-            dark: state.dark,
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(
-                    Icons.history_rounded,
-                    color: state.dark ? Colors.white : const Color(0xff171717),
-                  ),
-                  title: Text(
-                    '喝水记录',
-                    style: TextStyle(
-                      color: state.dark ? Colors.white : Color(0xff171717),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '查看接水次数和时间',
-                    style: TextStyle(
-                      color: state.dark
-                          ? const Color(0xffc9c9c9)
-                          : const Color(0xff65728f),
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: state.dark ? Colors.white : const Color(0xff171717),
-                  ),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DrinkingRecordsPage(state: state),
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Icon(
-                    Icons.widgets_outlined,
-                    color: state.dark ? Colors.white : const Color(0xff171717),
-                  ),
-                  title: Text(
-                    '桌面快捷组件',
-                    style: TextStyle(
-                      color: state.dark ? Colors.white : Color(0xff171717),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '选择一台设备快捷启动',
-                    style: TextStyle(
-                      color: state.dark
-                          ? const Color(0xffc9c9c9)
-                          : const Color(0xff65728f),
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: state.dark ? Colors.white : const Color(0xff171717),
-                  ),
-                  onTap: () => _chooseWidgetDevice(context, state),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          FilledButton.icon(
-            onPressed: state.logout,
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('退出登录'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              backgroundColor: const Color(0xffdf5360),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+            const SizedBox(height: 28),
+            TextButton.icon(
+              onPressed: state.logout,
+              style: TextButton.styleFrom(
+                foregroundColor: colors.danger,
+                minimumSize: const Size.fromHeight(48),
               ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('退出登录'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-Future<void> _copyToken(BuildContext context, String? token) async {
-  if (token == null || token.isEmpty) return;
-  await Clipboard.setData(ClipboardData(text: token));
-  if (context.mounted)
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(const SnackBar(content: Text('登录凭证已复制')));
+Future<void> _copyCredentials(BuildContext context, AppState state) async {
+  try {
+    final credentials = await state.exportLoginCredentials();
+    await Clipboard.setData(ClipboardData(text: credentials));
+    if (context.mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(20, 0, 20, 104),
+          duration: Duration(seconds: 2),
+          content: Text('登录密钥已复制，包含 token 和 UID'),
+        ),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            error is StateError ? error.message.toString() : '复制失败，请稍后重试',
+          ),
+        ),
+      );
+    }
+  }
 }
 
 Future<void> _chooseWidgetDevice(BuildContext context, AppState state) async {
@@ -279,38 +233,4 @@ Future<void> _chooseWidgetDevice(BuildContext context, AppState state) async {
   } on PlatformException {
     if (context.mounted) notice('桌面快捷组件同步失败，请重新添加组件');
   }
-}
-
-class _ProfilePanel extends StatelessWidget {
-  const _ProfilePanel({
-    required this.child,
-    this.padding = const EdgeInsets.all(16),
-    this.dark = false,
-  });
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final bool dark;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: dark
-            ? const [Color(0xff181818), Color(0xff0b0b0b)]
-            : const [Color(0xdffeffff), Color(0xc6f8ece6)],
-      ),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
-        color: dark ? const Color(0xff363636) : const Color(0x99ffffff),
-      ),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1f406c7c),
-          blurRadius: 20,
-          offset: Offset(0, 9),
-        ),
-      ],
-    ),
-    child: child,
-  );
 }

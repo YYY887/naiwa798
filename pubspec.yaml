@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.6+7
+version: 1.0.7+8
 
 environment:
   sdk: ^3.13.3
@@ -42,6 +42,9 @@ dependencies:
   url_launcher: ^6.3.2
   package_info_plus: ^8.3.0
   liquid_glass_widgets: ^1.7.0
+  permission_handler: 12.0.1
+  # Keep the Android implementation compatible with the project's compile SDK.
+  permission_handler_android: 13.0.1
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +68,9 @@ flutter:
 
   assets:
     - lib/static/logo.png
+    - lib/static/water_buddy.png
+    - lib/static/water_buddy_girl.png
+    - lib/static/water_buddy_yellow.png
 
 flutter_launcher_icons:
   android: true

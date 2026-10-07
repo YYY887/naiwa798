@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_palette.dart';
+
 class AccountAvatar extends StatelessWidget {
   const AccountAvatar({
     required this.account,
@@ -18,8 +20,8 @@ class AccountAvatar extends StatelessWidget {
     final name = account?['name']?.toString();
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: dark ? const Color(0xff252525) : const Color(0xffdff1ef),
-      foregroundColor: dark ? Colors.white : const Color(0xff171717),
+      backgroundColor: AppColors(dark).tint,
+      foregroundColor: AppColors(dark).accent,
       backgroundImage: url != null && url.isNotEmpty ? NetworkImage(url) : null,
       child: url == null || url.isEmpty
           ? Text(

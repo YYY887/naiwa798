@@ -5,11 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/device.dart';
+import '../models/buddy_character.dart';
 import 'api_client.dart';
+import 'login_credentials.dart';
 
 class AppState extends ChangeNotifier {
+  AppState({ApiClient? api}) : api = api ?? ApiClient();
   final secure = const FlutterSecureStorage();
-  final api = ApiClient();
+  final ApiClient api;
   String? token;
   Map<String, dynamic>? account;
   List<Device> devices = [];
@@ -26,6 +29,15 @@ class AppState extends ChangeNotifier {
   Timer? _statusTimer;
   Future<void>? _statusRequest;
   bool dark = false;
+  BuddyCharacter buddy = BuddyCharacter.boy;
+
+  Future<void> setBuddy(BuddyCharacter character) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('buddy_character', character.id);
+    buddy = character;
+    notifyListeners();
+  }
+
   final Map<String, String> remarks = {};
   final List<Map<String, String>> drinkingRecords = [];
   Future<void> init() async {
@@ -34,6 +46,7 @@ class AppState extends ChangeNotifier {
     api.uid = await secure.read(key: 'uid');
     final p = await SharedPreferences.getInstance();
     dark = p.getBool('dark_mode') ?? p.getBool('dark') ?? false;
+    buddy = BuddyCharacter.fromId(p.getString('buddy_character'));
     selected = p.getString('selected_device') ?? '';
     for (final key in p.getKeys().where(
       (key) => key.startsWith('device_remark_'),
@@ -67,6 +80,45 @@ class AppState extends ChangeNotifier {
     await secure.write(key: 'token', value: token);
     await refresh();
     notifyListeners();
+  }
+
+  Future<String?> loginWithCredentials(String input) async {
+    final LoginCredentials credentials;
+    try {
+      credentials = LoginCredentials.parse(input);
+    } on FormatException catch (error) {
+      return error.message;
+    }
+    authLoading = true;
+    notifyListeners();
+    try {
+      await login(credentials.token, uid: credentials.uid);
+      return null;
+    } catch (_) {
+      return '登录失败，请稍后重试';
+    } finally {
+      authLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String> exportLoginCredentials() async {
+    final currentToken = token;
+    if (currentToken == null || currentToken.isEmpty) {
+      throw StateError('请先登录');
+    }
+    String? uidFrom(Map? data) => (data?['uid'] ?? data?['id'])?.toString();
+    var currentUid = api.uid ?? uidFrom(account);
+    if (currentUid == null || currentUid.length < 8) {
+      final result = await api.get('ui/app/master');
+      final data = result['data']?['account'];
+      if (result['code'] == 0 && data is Map) currentUid = uidFrom(data);
+    }
+    if (token != currentToken) throw StateError('登录状态已变更，请重试');
+    if (currentUid == null || currentUid.length < 8) {
+      throw StateError('未获取到账号 UID，请重新登录后复制');
+    }
+    return LoginCredentials(token: currentToken, uid: currentUid).encode();
   }
 
   Future<String?> sendSmsCode(String phone, String captcha, String seed) async {
@@ -215,7 +267,8 @@ class AppState extends ChangeNotifier {
         _idleStatusCount = 0;
         _startStatusPolling();
       }
-      if (d['code'] == 0 && start) {
+      // Each record represents a successful start; stopping adds no record.
+      if (succeeded && start) {
         final device = devices.where((item) => item.id == selected).firstOrNull;
         final now = DateTime.now();
         final time =
@@ -419,6 +472,12 @@ class AppState extends ChangeNotifier {
   void _stopStatusPolling() {
     _statusTimer?.cancel();
     _statusTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopStatusPolling();
+    super.dispose();
   }
 
   Future<void> setDark(bool v) async {

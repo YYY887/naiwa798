@@ -1,192 +1,88 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_state.dart';
+import '../widgets/app_ui.dart';
+import '../widgets/app_version_label.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({required this.state, super.key});
   final AppState state;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: state.dark ? Colors.black : const Color(0xfff7f8fa),
-    body: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [0, .34, .58, 1],
-          colors: state.dark
-              ? const [Colors.black, Colors.black, Colors.black, Colors.black]
-              : const [
-                  Color(0xff9fe1e3),
-                  Color(0xffd9eeeb),
-                  Color(0xfff2d8cc),
-                  Color(0xfff7f8fa),
-                ],
-        ),
-      ),
-      child: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: '返回',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      color: const Color(0xff171717),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '关于奶娃喝水',
-                      style: TextStyle(
-                        color: Color(0xff171717),
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const _AboutPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '奶娃喝水',
-                        style: TextStyle(
-                          color: Color(0xff171717),
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        '当前版本 1.0.4',
-                        style: TextStyle(
-                          color: Color(0xff545454),
-                          fontSize: 14,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        '用于管理 798 净水设备，并支持胖乖洗澡扫码直达。',
-                        style: TextStyle(
-                          color: Color(0xff303030),
-                          height: 1.55,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  '使用说明',
-                  style: TextStyle(
-                    color: Color(0xff171717),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                const _AboutPanel(
-                  child: Column(
-                    children: [
-                      _AboutTip(number: '1', text: '登录后可查看并操作 798 净水设备。'),
-                      Divider(height: 24, color: Color(0x2271819a)),
-                      _AboutTip(number: '2', text: '胖乖洗澡会直接打开相机，识别洗澡二维码。'),
-                      Divider(height: 24, color: Color(0x2271819a)),
-                      _AboutTip(
-                        number: '3',
-                        text: '在“我的”中可选择设备并同步到 Android 桌面快捷组件。',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  '隐私说明',
-                  style: TextStyle(
-                    color: Color(0xff171717),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                const _AboutPanel(
-                  child: Text(
-                    '登录凭证仅保存在当前设备，用于快捷登录。请勿向他人分享登录凭证。',
-                    style: TextStyle(color: Color(0xff303030), height: 1.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _AboutPanel extends StatelessWidget {
-  const _AboutPanel({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xcfffffff), Color(0x8fffffff)],
-      ),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0x99ffffff)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x120f244d),
-          blurRadius: 16,
-          offset: Offset(0, 7),
-        ),
-      ],
-    ),
-    child: child,
-  );
-}
-
-class _AboutTip extends StatelessWidget {
-  const _AboutTip({required this.number, required this.text});
-  final String number;
-  final String text;
-  @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => AppPage(
+    dark: state.dark,
     children: [
-      Container(
-        width: 23,
-        height: 23,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: Color(0xffe7f3f4),
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Color(0xff171717),
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-          ),
+      const AppHeader(title: '关于奶娃喝水', subtitle: '把喝水这件小事，照顾好', back: true),
+      AppSurface(
+        child: Column(
+          children: [
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset('lib/static/logo.png', width: 72, height: 72),
+            ),
+            const SizedBox(height: 18),
+            Text('奶娃喝水', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            const AppVersionLabel(),
+            const SizedBox(height: 16),
+            Text(
+              '饮水设备管理 · 胖乖洗澡扫码',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 6),
+          ],
         ),
       ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text(
-          text,
-          style: const TextStyle(color: Color(0xff303030), height: 1.55),
+      const AppSectionHeading('使用说明'),
+      const AppSurface(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            AppMenuRow(
+              icon: Icons.water_drop_outlined,
+              title: '管理饮水设备',
+              subtitle: '扫码绑定 798 饮水机，随时开始或停止接水。',
+              trailing: SizedBox.shrink(),
+            ),
+            Padding(
+              padding: EdgeInsets.only(left: 72, right: 18),
+              child: Divider(),
+            ),
+            AppMenuRow(
+              icon: Icons.qr_code_scanner_rounded,
+              title: '扫码去洗澡',
+              subtitle: '扫描胖乖二维码，直达支付宝对应服务。',
+              trailing: SizedBox.shrink(),
+            ),
+            Padding(
+              padding: EdgeInsets.only(left: 72, right: 18),
+              child: Divider(),
+            ),
+            AppMenuRow(
+              icon: Icons.widgets_outlined,
+              title: '桌面快捷启动',
+              subtitle: '在“我的”选择常用设备，添加 Android 桌面快捷组件。',
+              trailing: SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+      const AppSectionHeading('隐私说明'),
+      AppSurface(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppIconBadge(icon: Icons.lock_outline_rounded, size: 40),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                '登录密钥仅保存在当前设备，用于快捷登录。请勿向他人分享。',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
         ),
       ),
     ],

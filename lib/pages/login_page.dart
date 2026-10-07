@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../core/app_state.dart';
+import '../core/app_palette.dart';
+import '../widgets/app_ui.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({required this.state, super.key});
@@ -19,7 +21,6 @@ class _LoginPageState extends State<LoginPage> {
   final otp = List.generate(6, (_) => TextEditingController());
   final otpFocus = List.generate(6, (_) => FocusNode());
   final token = TextEditingController();
-  final uid = TextEditingController();
   late String seed;
   late String captchaUrl;
   bool tokenMode = false;
@@ -40,7 +41,6 @@ class _LoginPageState extends State<LoginPage> {
     captcha.dispose();
     sms.dispose();
     token.dispose();
-    uid.dispose();
     for (final item in otp) {
       item.dispose();
     }
@@ -97,179 +97,146 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted && r != null) setState(() => error = r);
   }
 
+  Future<void> _loginCredentials() async {
+    final result = await widget.state.loginWithCredentials(token.text);
+    if (mounted) setState(() => error = result);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tablet = MediaQuery.sizeOf(context).width >= 700;
-    return Scaffold(
-      backgroundColor: widget.state.dark
-          ? Colors.black
-          : const Color(0xfff6f8ff),
-      body: SizedBox.expand(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              stops: [0, 0.34, 0.58, 1],
-              colors: widget.state.dark
-                  ? const [
-                      Colors.black,
-                      Colors.black,
-                      Colors.black,
-                      Colors.black,
-                    ]
-                  : const [
-                      Color(0xff9fe1e3),
-                      Color(0xffd9eeeb),
-                      Color(0xfff2d8cc),
-                      Color(0xfff7f8fa),
-                    ],
+    final colors = AppColors(widget.state.dark);
+    return AppPage(
+      dark: widget.state.dark,
+      children: [
+        const SizedBox(height: 40),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: colors.tint,
+              borderRadius: BorderRadius.circular(22),
             ),
-          ),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 72, 28, 28),
-              child: Align(
-                alignment: tablet ? Alignment.topCenter : Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '奶娃喝水',
-                            style: TextStyle(
-                              color: widget.state.dark
-                                  ? Colors.white
-                                  : const Color(0xff192745),
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        tokenMode
-                            ? '使用登录凭证快速登录'
-                            : codeStep
-                            ? '验证码已发送至 ${phone.text}'
-                            : '净水设备管理',
-                        textAlign: TextAlign.left,
-                        style: TextStyle(
-                          color: widget.state.dark
-                              ? const Color(0xffd5d5d5)
-                              : const Color(0xff65728f),
-                        ),
-                      ),
-                      const SizedBox(height: 72),
-                      if (tokenMode) ...[
-                        _tokenInput(),
-                        const SizedBox(height: 14),
-                        _button(
-                          '登录',
-                          widget.state.authLoading
-                              ? null
-                              : () => widget.state.login(
-                                  token.text,
-                                  uid: uid.text,
-                                ),
-                        ),
-                      ] else if (codeStep) ...[
-                        Text(
-                          '输入短信验证码',
-                          style: const TextStyle(
-                            color: Color(0xff192745),
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '已向您的手机 ${phone.text.length >= 4 ? phone.text.substring(phone.text.length - 4) : phone.text} 发送验证码',
-                          style: const TextStyle(
-                            color: Color(0xff65728f),
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 54),
-                        _otpInput(),
-                        const SizedBox(height: 20),
-                        TextButton(
-                          onPressed:
-                              _remainingSeconds > 0 || widget.state.authLoading
-                              ? null
-                              : _openCaptcha,
-                          child: Text(
-                            _remainingSeconds > 0
-                                ? '重新发送（$_remainingSeconds）'
-                                : '重新发送验证码',
-                            style: TextStyle(
-                              color: _remainingSeconds > 0
-                                  ? const Color(0xff737e93)
-                                  : const Color(0xff536ee8),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 48),
-                        _button(
-                          '下一步',
-                          widget.state.authLoading ? null : _loginSms,
-                        ),
-                      ] else ...[
-                        _phoneInput(),
-                        const SizedBox(height: 28),
-                        _button(
-                          '\u83b7\u53d6\u77ed\u4fe1\u9a8c\u8bc1\u7801',
-                          widget.state.authLoading ? null : _openCaptcha,
-                        ),
-                      ],
-                      if (error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Color(0xffff8b9a)),
-                          ),
-                        ),
-                      const SizedBox(height: 54),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Material(
-                          color: const Color(0x66ffffff),
-                          shape: const CircleBorder(),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: IconButton(
-                              tooltip: tokenMode ? '使用手机号登录' : '使用登录凭证',
-                              onPressed: () => setState(() {
-                                tokenMode = !tokenMode;
-                                codeStep = false;
-                                error = null;
-                              }),
-                              icon: Icon(
-                                tokenMode
-                                    ? Icons.phone_android_rounded
-                                    : Icons.key_rounded,
-                                color: const Color(0xff536ee8),
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            padding: const EdgeInsets.all(10),
+            child: Image.asset('lib/static/logo.png'),
           ),
         ),
-      ),
+        const SizedBox(height: 24),
+        const AppHeader(title: '奶娃喝水', subtitle: '给日常补水，也给自己一点元气'),
+        AppSurface(
+          dark: widget.state.dark,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tokenMode
+                    ? '密钥登录'
+                    : codeStep
+                    ? '输入验证码'
+                    : '欢迎回来',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tokenMode
+                    ? '粘贴完整密钥，快速回到你的账户'
+                    : codeStep
+                    ? '验证码已发送至 ${phone.text}'
+                    : '登录后，开始你的第一杯水',
+                style: TextStyle(
+                  color: colors.muted,
+                  fontSize: 12,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 26),
+              if (tokenMode) ...[
+                _tokenInput(),
+                const SizedBox(height: 22),
+                _button(
+                  '登录',
+                  widget.state.authLoading ? null : _loginCredentials,
+                ),
+              ] else if (codeStep) ...[
+                _otpInput(),
+                const SizedBox(height: 18),
+                TextButton(
+                  onPressed: _remainingSeconds > 0 || widget.state.authLoading
+                      ? null
+                      : _openCaptcha,
+                  child: Text(
+                    _remainingSeconds > 0
+                        ? '重新发送（$_remainingSeconds）'
+                        : '重新发送验证码',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _button('下一步', widget.state.authLoading ? null : _loginSms),
+              ] else ...[
+                _phoneInput(),
+                const SizedBox(height: 22),
+                _button(
+                  '获取短信验证码',
+                  widget.state.authLoading ? null : _openCaptcha,
+                ),
+              ],
+              if (error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.danger.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: colors.danger,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        Tooltip(
+          message: tokenMode ? '使用手机号登录' : '使用登录凭证',
+          child: TextButton.icon(
+            onPressed: widget.state.authLoading
+                ? null
+                : () => setState(() {
+                    tokenMode = !tokenMode;
+                    codeStep = false;
+                    error = null;
+                  }),
+            icon: Icon(
+              tokenMode ? Icons.phone_android_rounded : Icons.key_outlined,
+              size: 18,
+            ),
+            label: Text(tokenMode ? '使用手机号登录' : '使用登录凭证'),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline_rounded, color: colors.muted, size: 13),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '登录密钥安全保存在当前设备',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.muted, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -347,31 +314,16 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _phoneInput() => Row(
-    children: [
-      const Text(
-        '+86',
-        style: TextStyle(color: Color(0xff354463), fontSize: 18),
-      ),
-      const SizedBox(width: 14),
-      Expanded(
-        child: TextField(
-          controller: phone,
-          keyboardType: TextInputType.phone,
-          style: const TextStyle(color: Color(0xff192745), fontSize: 24),
-          decoration: const InputDecoration(
-            hintText: '手机号',
-            hintStyle: TextStyle(color: Color(0xff8390aa)),
-            border: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xffcdd6e8)),
-            ),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xffcdd6e8)),
-            ),
-          ),
-        ),
-      ),
-    ],
+  Widget _phoneInput() => TextField(
+    controller: phone,
+    keyboardType: TextInputType.phone,
+    autofillHints: const [AutofillHints.telephoneNumberNational],
+    style: Theme.of(context).textTheme.bodyLarge,
+    decoration: const InputDecoration(
+      hintText: '手机号',
+      prefixIcon: Icon(Icons.phone_android_rounded, size: 20),
+      prefixText: '+86  ',
+    ),
   );
 
   Widget _otpInput() => Row(
@@ -379,133 +331,81 @@ class _LoginPageState extends State<LoginPage> {
       6,
       (index) => Expanded(
         child: Padding(
-          padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
+          padding: EdgeInsets.only(right: index == 5 ? 0 : 6),
           child: TextField(
             controller: otp[index],
             focusNode: otpFocus[index],
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             maxLength: 1,
-            style: const TextStyle(
-              color: Color(0xff192745),
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
+            style: TextStyle(
+              color: AppColors(widget.state.dark).ink,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
             ),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               counterText: '',
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xffcdd6e8)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xff7188ff), width: 2),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: AppColors(widget.state.dark).border,
+                ),
               ),
             ),
             onChanged: (value) {
-              if (value.isNotEmpty && index < 5)
+              if (value.isNotEmpty && index < 5) {
                 otpFocus[index + 1].requestFocus();
+              }
             },
           ),
         ),
       ),
     ),
   );
-  Widget _input(TextEditingController c, String hint) => TextField(
-    controller: c,
-    style: const TextStyle(color: Color(0xff192745)),
-    decoration: InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xff8390aa)),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xffcdd6e8)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xffcdd6e8)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xff6378ef), width: 2),
-      ),
-    ),
+
+  Widget _input(TextEditingController controller, String hint) => TextField(
+    controller: controller,
+    decoration: InputDecoration(hintText: hint),
   );
+
   Widget _tokenInput() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text(
-        '798 登录凭证',
-        style: TextStyle(
-          color: Color(0xff354463),
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
-      const SizedBox(height: 9),
+      Text('798 登录密钥', style: Theme.of(context).textTheme.bodyMedium),
+      const SizedBox(height: 10),
       TextField(
         controller: token,
         autocorrect: false,
         enableSuggestions: false,
-        style: const TextStyle(color: Color(0xff192745), fontSize: 15),
-        decoration: InputDecoration(
-          hintText: '粘贴已获取的登录凭证',
-          hintStyle: const TextStyle(color: Color(0xff8390aa)),
-          prefixIcon: const Icon(
-            Icons.key_rounded,
-            color: Color(0xff6578c8),
-            size: 20,
-          ),
-          filled: true,
-          fillColor: const Color(0xddffffff),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 17,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(color: Color(0xffd8e0ef)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(color: Color(0xffd8e0ef)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(color: Color(0xff6378ef), width: 2),
-          ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      TextField(
-        controller: uid,
-        autocorrect: false,
-        enableSuggestions: false,
         decoration: const InputDecoration(
-          labelText: '账号 UID（设备控制需要）',
-          hintText: '填写与登录凭证对应的 UID',
-          prefixIcon: Icon(Icons.person_outline_rounded),
-          border: OutlineInputBorder(),
+          hintText: '粘贴完整登录密钥（含 token 和 UID）',
+          prefixIcon: Icon(Icons.key_outlined, size: 20),
         ),
       ),
-      const SizedBox(height: 8),
-      const Text(
-        '登录凭证和 UID 仅保存在当前设备；验证码登录会自动获取 UID。',
-        style: TextStyle(color: Color(0xff71809d), fontSize: 12),
+      const SizedBox(height: 10),
+      Text(
+        '在“我的”中点击账户卡片复制密钥，在这里粘贴一行即可登录。',
+        style: Theme.of(context).textTheme.bodySmall,
       ),
     ],
   );
-  Widget _button(String text, VoidCallback? action) => SizedBox(
-    height: 52,
-    child: ElevatedButton(
-      onPressed: action,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xff6378ef),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
-    ),
+
+  Widget _button(String text, VoidCallback? action) => ElevatedButton(
+    onPressed: action,
+    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+    child: widget.state.authLoading
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
+            ),
+          )
+        : Text(text),
   );
 }
